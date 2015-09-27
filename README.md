@@ -1,5 +1,4 @@
-# percolation
-Solution for the algorithms course union find assignment
+# percolation Solution for the algorithms course union find assignment
 
 Test inputs from course
 % java PercolationStats 200 100
