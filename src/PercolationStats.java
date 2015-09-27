@@ -1,6 +1,3 @@
-import java.util.Arrays;
-
-import edu.princeton.cs.algs4.StdIn;
 import edu.princeton.cs.algs4.StdRandom;
 import edu.princeton.cs.algs4.StdStats;
 
@@ -8,16 +5,29 @@ public class PercolationStats {
     private int numberIterations;
     private double[] values;
 
-    public PercolationStats(int N, int T) {
+    public PercolationStats(int gridSz, int numIter) {
 
-        if (N <= 0 || T <= 0)
+        if (gridSz <= 0 || numIter <= 0)
             throw new IllegalArgumentException(
-                    "Incorrect size for percolation grid" + N);
+                    "Invalid input arguments N=" + gridSz + " T=" + numIter);
 
-        this.numberIterations = T;
+        this.numberIterations = numIter;
 
-        values = new double[T];
-        Arrays.fill(values, 0);
+        values = new double[numIter];
+
+        for (int i = 0; i < numberIterations; i++) {
+            int iteration = 0;
+
+            Percolation p = new Percolation(gridSz);
+            while (!p.percolates()) {
+                int x_idx = StdRandom.uniform(1, gridSz+1);
+                int y_idx = StdRandom.uniform(1, gridSz+1);
+
+                p.open(x_idx, y_idx);
+                iteration++;
+            }
+            values[i] = iteration * 1.0 / (gridSz * gridSz);
+        }
 
     }
 
@@ -44,32 +54,14 @@ public class PercolationStats {
         if (args.length != 2)
             throw new IllegalArgumentException();
 
-        int N = StdIn.readInt();
-        int T = StdIn.readInt();
+        int numberElem = Integer.parseInt(args[0]);
+        int numberIter = Integer.parseInt(args[1]);
 
-        PercolationStats pstats = new PercolationStats(N, T);
+        PercolationStats pstats = new PercolationStats(numberElem, numberIter);
 
-        for (int i = 0; i < T; i++) {
-            Percolation percolation = new Percolation(N);
-            int iter = 0;
-
-            while (!percolation.percolates()) {
-                int randi = StdRandom.uniform(1, N+1);
-                int randj = StdRandom.uniform(1, N+1);
-
-                if (percolation.isOpen(randi, randj))
-                    continue;
-
-                percolation.open(randi, randj);
-                iter++;
-            }
-
-            pstats.values[i] = iter * 1.0 / (N * N);
-
-        }
-        System.out.println("mean\t= " + pstats.mean());
-        System.out.println("stddev\t= " + pstats.stddev());
-        System.out.println("95% confidence interval\t= "
+        System.out.println("mean                        = " + pstats.mean());
+        System.out.println("stddev                      = " + pstats.stddev());
+        System.out.println("95% confidence interval     = "
                 + (pstats.confidenceHi() + ", " + pstats.confidenceLo()));
 
     }

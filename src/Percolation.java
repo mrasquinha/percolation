@@ -7,11 +7,8 @@ import edu.princeton.cs.algs4.WeightedQuickUnionUF;
  */
 public class Percolation {
 
-    private enum SiteState {
-        SB, SO, SF 
-    }
-
     private WeightedQuickUnionUF wuf;
+    private WeightedQuickUnionUF wufFull;
     private int siteDepth;
 
     // create virtual nodes that connect the top row; similarly bottom row
@@ -19,113 +16,103 @@ public class Percolation {
     private int virtBottom;
 
     // mask for each site in the grid
-    private SiteState[][] sites;
+    private boolean[][] sites;
+
+    // prevent backwash
+    private boolean hasPercolated;
 
     /**
      * create N-by-N grid, with all sites blocked
-     * 
-     * @param N
-     *            : dimension of the percolation grid
-     * @throws IllegalArgumentException
-     *             if N<=0
-     * @throws OutOfMemoryError
-     *             if NxN array cannot be allocated
+     * @param gridSize      dimension of the percolation grid
+     * @throws              IllegalArgumentException if N<=0
      */
-    public Percolation(int N) {
+    public Percolation(int gridSize) {
 
-        if (N <= 0)
+        if (gridSize <= 0)
             throw new java.lang.IllegalArgumentException(
-                    "Incorrect size for percolation grid" + N);
+                    "Incorrect size for percolation grid" + gridSize);
 
-        this.siteDepth = N;
+        this.siteDepth = gridSize;
         this.virtTop = 0;
-        this.virtBottom = N * N + 1;
+        this.virtBottom = gridSize * gridSize + 1;
+        this.hasPercolated = false;
+
         // Adding 2 for the virtual nodes
         wuf = new WeightedQuickUnionUF(this.siteDepth * this.siteDepth + 2);
+        // Adding 1 for the top virtual node
+        wufFull = new WeightedQuickUnionUF(this.siteDepth * this.siteDepth + 1);
 
-        sites = new SiteState[siteDepth+1][siteDepth+1];
+        sites = new boolean[siteDepth+1][siteDepth+1];
 
         for (int i = 0; i <= siteDepth; i++)
             for (int j = 0; j <= siteDepth; j++)
-                sites[i][j] = SiteState.SB;
+                sites[i][j] = false;
     }
 
     /**
      * open site (row i, column j) if it is not open already
-     * 
-     * @param i
-     *            open site at ith row in grid
-     * @param j
-     *            open site at jth column in grid
-     * @throws IndexOutOfBoundsException
+     * @param i     open site at ith row in grid
+     * @param j     open site at jth column in grid
+     * @throws      IndexOutOfBoundsException
      */
     public void open(int i, int j) {
         if (isOpen(i, j))
             return;
 
-        int element = ((i-1) * siteDepth) + (j-1) + 1;
-        sites[i][j] = SiteState.SO;
+        int element = ((i-1)*siteDepth) + (j-1) + 1;
 
         if (i == 1) {
             // connect the top row to its virtual node
             wuf.union(virtTop, element);
-            //sites[i][j] = SiteState.SF;
-        } 
+            wufFull.union(virtTop, element);
+        }
+
         if (i == siteDepth) {
             // connect the bottom row to its virtual node
             wuf.union(element, virtBottom);
         }
 
         // connect neighbors if they are open
-        if ((i != 1) && isOpen(i - 1, j))
+        if ((i != 1) && isOpen(i - 1, j)) {
             wuf.union(element, element - siteDepth);
+            wufFull.union(element, element - siteDepth);
+        }
 
-        if ((i != siteDepth) && isOpen(i + 1, j))
+        if ((i != siteDepth) && isOpen(i + 1, j)) {
             wuf.union(element, element + siteDepth);
+            wufFull.union(element, element + siteDepth);
+        }
        
-
-        if ((j != 1) && isOpen(i, j - 1))
+        if ((j != 1) && isOpen(i, j - 1)) {
             wuf.union(element, element - 1);
+            wufFull.union(element, element - 1);
+        }
 
-        if ((j != siteDepth) && isOpen(i, j + 1))
+        if ((j != siteDepth) && isOpen(i, j + 1)) {
             wuf.union(element, element + 1);
+            wufFull.union(element, element + 1);
+        }
 
-        if (wuf.find(element) == wuf.find(virtTop))
-            findFullSites(i, j);
+        // Open the current site
+        sites[i][j] = true;
+
+        if (!hasPercolated && wuf.find(element) == wuf.find(virtTop))
+            wufFull.union(virtTop, element);
+
     }
 
-    private void findFullSites(int xdim, int ydim) {
-        if (sites[xdim][ydim] != SiteState.SO)
-            return;
-        int element = ((xdim-1) * siteDepth) + (ydim-1) + 1;
-        if (wuf.find(element) == wuf.find(virtTop))
-            sites[xdim][ydim] = SiteState.SF;
-            
-        if (xdim != 1)
-            findFullSites(xdim-1, ydim);
-        if (xdim < siteDepth)
-            findFullSites(xdim+1, ydim);
-        if (ydim != 1)
-            findFullSites(xdim, ydim-1);
-        if (ydim < siteDepth)
-            findFullSites(xdim, ydim+1);
-        
-    }
     /**
      * is site (row i, column j) open?
-     * 
-     * @param i
-     *            row number in grid
-     * @param j
-     *            column number in grid
-     * @return
-     * @throws IndexOutOfBoundsException
+     * @param i     row number in grid
+     * @param j     column number in grid
+     * @return      true if site is open or full; false otherwise
+     * @throws      IndexOutOfBoundsException
      */
     public boolean isOpen(int i, int j) {
         if (i <= 0 || i > siteDepth || j <= 0 || j > siteDepth)
             throw new IndexOutOfBoundsException();
 
-        if (sites[i][j] == SiteState.SO || sites[i][j] == SiteState.SF)
+        if (sites[i][j])
             return true;
         
         return false;
@@ -133,32 +120,30 @@ public class Percolation {
 
     /**
      * is site (row i, column j) full?
-     * 
-     * @param i
-     *            row number in grid
-     * @param j
-     *            column number in grid
-     * @return
-     * @throws IndexOutOfBoundsException
+     * @param i     row number in grid
+     * @param j     column number in grid
+     * @return      true if site is full; false otherwise
+     * @throws      IndexOutOfBoundsException
      */
     public boolean isFull(int i, int j) {
-
         if (i <= 0 || i > siteDepth || j <= 0 || j > siteDepth)
             throw new IndexOutOfBoundsException();
-        
-        if (sites[i][j] == SiteState.SF)
+
+        int element = ((i-1)*siteDepth) + (j-1) + 1;
+
+        if (wufFull.connected(element, virtTop))
             return true;
 
         return false;
     }
 
     /**
-     * does the system percolate
-     * 
+     * does the system percolate ?
      * @return true is there is a path from row0 to rowN-1
      */
     public boolean percolates() {
         if (wuf.connected(virtTop, virtBottom)) {
+            hasPercolated = true;
             return true;
         }
         
@@ -167,42 +152,35 @@ public class Percolation {
 
     /**
      * test client
-     * 
-     * @param args
-     *            : Size of the percolation grid
      */
     public static void main(String[] args) {
         
-        boolean use_input_txt = false; // using this with the input test files
-                                       // provided
+        boolean useInputTxt = true; // using this with the input test files provided
 
-        int N = StdIn.readInt();
-        Percolation p = new Percolation(N);
-        int iter = 0;
+        int numberElem = StdIn.readInt();
+        Percolation p = new Percolation(numberElem);
+        int iteration = 0;
 
-        while (!p.percolates() || (use_input_txt && !StdIn.isEmpty())) { 
+        while (!p.percolates() || (useInputTxt && !StdIn.isEmpty())) {
             //array indices are from 1 to grid_size inclusive
-            int randi = StdRandom.uniform(1, N+1);
-            int randj = StdRandom.uniform(1, N+1);
+            int randi = StdRandom.uniform(1, numberElem+1);
+            int randj = StdRandom.uniform(1, numberElem+1);
 
-            if (use_input_txt && StdIn.isEmpty())
+            if (useInputTxt && StdIn.isEmpty())
                 break;
 
-            if (use_input_txt) {
+            if (useInputTxt) {
                 randi = StdIn.readInt();
                 randj = StdIn.readInt();
             }
 
-            if (p.isOpen(randi, randj))
-                continue;
-
             p.open(randi, randj);
-            iter++;
+            iteration++;
         }
 
         if (p.percolates())
-            System.out.println("For iter=" + iter + " prob: " + iter * 1.0
-                    / (N * N));
+            System.out.println("For iteration=" + iteration + " prob: " +
+                    iteration * 1.0 / (numberElem * numberElem));
         else
             System.out.println("Does not percolate");
     }
